@@ -117,8 +117,8 @@ pub fn evaluate_triangle(
         };
     }
     
-    // Calculate final edge
-    let final_amount = legs.last().unwrap().price * legs.last().unwrap().qty;
+    // Calculate final edge using actual execution price (vwap_price) after fees
+    let final_amount = legs.last().unwrap().vwap_price * legs.last().unwrap().qty;
     let expected_edge = calculate_edge_bps(capital_inr, final_amount);
     
     let can_execute = expected_edge >= Decimal::from(entry_threshold_bps);

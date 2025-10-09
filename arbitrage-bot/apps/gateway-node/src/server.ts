@@ -466,12 +466,15 @@ export class GatewayServer {
       }
     };
     
-    this.logger.info('📢 Broadcasting opportunity to frontend', {
-      triangle: bundle.triangle_id,
-      edge: bundle.expected_edge,
-      clients: this.connectedClients.size
-    });
-    
     this.broadcast(message);
+    
+    // Only log profitable opportunities to reduce noise
+    const edge = parseFloat(bundle.expected_edge);
+    if (edge >= 8) {
+      this.logger.info('📢 Profitable opportunity broadcasted', {
+        triangle: bundle.triangle_id,
+        edge: edge.toFixed(2)
+      });
+    }
   }
 }

@@ -78,7 +78,7 @@ impl UDSServer {
                     break;
                 }
                 
-                info!("📤 Sent bundle to gateway via UDS");
+                // Silently send bundles - frontend will show them
             }
         });
         
@@ -145,7 +145,7 @@ impl UDSServer {
                         }
                         "market_meta" => {
                             if let Ok(meta) = serde_json::from_value::<MarketMeta>(json) {
-                                tracing::info!("📋 Received market meta for: {}", meta.market);
+                                // Silently process market metadata
                                 engine.update_market_meta(meta).await;
                             }
                         }

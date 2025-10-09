@@ -172,13 +172,6 @@ export class UDSClient {
       const payload = data.slice(4, 4 + length);
       const orderBundle = this.deserializeOrderBundle(payload);
       
-      // Handle order bundle from engine
-      this.logger.info('💰 Opportunity received from engine', {
-        triangle: orderBundle.triangle_id,
-        edge: orderBundle.expected_edge,
-        capital: orderBundle.capital_inr
-      });
-
       // Forward to callback (server will broadcast to frontend)
       if (this.opportunityCallback) {
         this.opportunityCallback(orderBundle);

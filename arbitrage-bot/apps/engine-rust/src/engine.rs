@@ -80,7 +80,8 @@ impl ArbitrageEngine {
         *self.triangles.write().await = triangles;
         *self.triangles_by_market.write().await = triangles_by_market;
         
-        tracing::info!("Engine initialized with {} triangles", self.triangles.read().await.len());
+        let triangle_count = self.triangles.read().await.len();
+        tracing::info!("✅ Engine initialized with {} triangles", triangle_count);
         Ok(())
     }
 
@@ -197,22 +198,20 @@ impl ArbitrageEngine {
             
             match result {
                 Some(evaluation) => {
-                    let final_amount = evaluation.legs.last().unwrap().price * evaluation.legs.last().unwrap().qty;
-                    let profit = final_amount - evaluation.capital_inr;
-                    
                     // Always emit bundle for frontend display (both positive and negative)
                     self.emit_order_bundle(&triangle, evaluation.clone()).await;
                     
-                    // Log all opportunities at info level for verification
-                    let status = if evaluation.can_execute { "💰 PROFITABLE" } else { "📊 EVALUATED" };
-                    tracing::info!(
-                        "{} {} | Edge: {:.2} bps | Profit: {:.2} INR | Size: {} INR",
-                        status,
-                        triangle.id,
-                        evaluation.expected_edge,
-                        profit,
-                        evaluation.capital_inr
-                    );
+                    // Only log profitable opportunities
+                    if evaluation.can_execute {
+                        let final_amount = evaluation.legs.last().unwrap().vwap_price * evaluation.legs.last().unwrap().qty;
+                        let profit = final_amount - evaluation.capital_inr;
+                        tracing::info!(
+                            "💰 {} | Edge: {:.2} bps | Profit: {:.2} INR",
+                            triangle.id,
+                            evaluation.expected_edge,
+                            profit
+                        );
+                    }
                     
                     // Check if edge improved enough to bypass cooldown for actual execution
                     if self.edge_improved_enough(&triangle.id, evaluation.expected_edge).await {

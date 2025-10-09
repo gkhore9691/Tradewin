@@ -1,0 +1,148 @@
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.tmproj
+*.code-workspace
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+.npm
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# Build Output - Node.js/TypeScript
+dist/
+build/
+*.tsbuildinfo
+.next/
+out/
+.nuxt/
+.cache/
+.parcel-cache/
+
+# Rust
+target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# Compiled binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+*.lcov
+.nyc_output/
+.coverage
+.pytest_cache/
+.hypothesis/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Docker
+*.dockerignore
+docker-compose.override.yml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Misc
+*.bak
+*.backup
+*.orig
+.cache
+.temp
+*.pid
+*.seed
+*.pid.lock
+
+# Package manager lock files (optional - uncomment if needed)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# macOS specific
+.AppleDouble
+.LSOverride
+Icon
+
+# Kubernetes secrets (if any)
+*secret*.yaml
+*-secret.yaml
+
+# Local configuration overrides
+config.local.*
+*.local.toml
+*.local.json
+
+# Performance and profiling
+*.prof
+*.trace
+*.cpuprofile
+*.heapprofile
+*.heapsnapshot
+

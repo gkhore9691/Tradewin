@@ -9,35 +9,42 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="app">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
+    <div class="app compact-mode">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <div class="top-bar-left">
                 <div class="logo">
                     <div class="logo-icon">⚡</div>
                     <span class="logo-text">Arbitrage Bot</span>
                 </div>
             </div>
             
-            <nav class="sidebar-nav">
-                <div class="nav-section">
-                    <h3 class="nav-title">Markets</h3>
-                    <div class="search-container">
-                        <i class="fas fa-search search-icon"></i>
-                        <input 
-                            type="text" 
-                            id="marketSearch" 
-                            class="search-input" 
-                            placeholder="Search markets..."
-                        />
+            <div class="top-bar-center">
+                <div class="key-stats">
+                    <div class="key-stat">
+                        <i class="fas fa-bolt"></i>
+                        <span id="oppCount">0</span>
+                        <small>Opportunities</small>
                     </div>
-                    <div class="nav-items" id="marketList">
-                        <!-- Market list will be populated here -->
+                    <div class="key-stat success">
+                        <i class="fas fa-arrow-up"></i>
+                        <span id="profitableCount">0</span>
+                        <small>Profitable</small>
+                    </div>
+                    <div class="key-stat">
+                        <i class="fas fa-chart-line"></i>
+                        <span id="bestEdge">--</span>
+                        <small>Best Edge</small>
+                    </div>
+                    <div class="key-stat">
+                        <i class="fas fa-server"></i>
+                        <span id="totalMarkets">0</span>
+                        <small>Markets</small>
                     </div>
                 </div>
-            </nav>
-
-            <div class="sidebar-footer">
+            </div>
+            
+            <div class="top-bar-right">
                 <div class="connection-status">
                     <div class="status-indicator" id="connectionStatus">
                         <div class="status-dot"></div>
@@ -45,170 +52,93 @@
                     </div>
                 </div>
             </div>
-        </aside>
+        </header>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <header class="main-header">
-                <div class="header-left">
-                    <h1 class="page-title">Market Overview</h1>
-                    <p class="page-subtitle">Real-time arbitrage opportunities</p>
+        <!-- Main Dashboard -->
+        <main class="dashboard">
+            <!-- Left Panel: Triangle Status Grid -->
+            <section class="panel triangle-grid-panel">
+                <div class="panel-header">
+                    <h3><i class="fas fa-th"></i> Triangle Status</h3>
+                    <div class="search-mini">
+                        <input type="text" id="triangleSearch" placeholder="Filter..." class="search-mini-input">
+                    </div>
                 </div>
-                <div class="header-right">
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value" id="totalMarkets">0</div>
-                            <div class="stat-label">Active Markets</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="totalVolume">0</div>
-                            <div class="stat-label">Total Volume</div>
+                <div class="panel-content">
+                    <div id="triangleGrid" class="triangle-grid">
+                        <!-- Triangle status tiles will be populated here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Center Panel: Best Opportunities -->
+            <section class="panel opportunities-panel">
+                <div class="panel-header">
+                    <h3><i class="fas fa-trophy"></i> Top Opportunities</h3>
+                    <div class="filter-tabs">
+                        <button class="filter-tab active" data-filter="all">All</button>
+                        <button class="filter-tab" data-filter="profitable">Profitable</button>
+                        <button class="filter-tab" data-filter="near">Near-Miss</button>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <div id="topOpportunities" class="opportunities-compact">
+                        <div class="no-data-compact">
+                            <i class="fas fa-clock"></i>
+                            <p>Waiting for opportunities...</p>
                         </div>
                     </div>
                 </div>
-            </header>
+            </section>
 
-            <div class="content-area">
-                <!-- Opportunity Feed -->
-                <div class="opportunity-feed-card">
-                    <div class="card-header">
-                        <h3><i class="fas fa-bolt"></i> Arbitrage Opportunities</h3>
-                        <div class="opportunity-stats">
-                            <span id="oppCount" class="stat-badge">0 opportunities</span>
-                            <span id="bestEdge" class="stat-badge">Best: --</span>
-                        </div>
-                    </div>
-                    <div class="card-content">
-                        <div id="opportunityFeed" class="opportunity-feed">
-                            <div class="no-opportunities">
-                                <i class="fas fa-clock"></i>
-                                <p>Waiting for arbitrage opportunities...</p>
-                                <small>The engine is analyzing market data in real-time</small>
+            <!-- Right Panel: Selected Market Orderbook -->
+            <section class="panel orderbook-panel">
+                <div class="panel-header">
+                    <h3 id="currentMarket"><i class="fas fa-book"></i> Market: BTCINR</h3>
+                    <select id="marketSelect" class="market-select-mini">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+                <div class="panel-content">
+                    <div class="orderbook-compact">
+                        <div class="orderbook-side-compact asks-compact">
+                            <div class="side-label">Asks</div>
+                            <div id="asksList" class="orders-compact">
+                                <div class="no-data-compact">No data</div>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Market Selector -->
-                <div class="market-selector-card">
-                    <div class="card-header">
-                        <h3><i class="fas fa-chart-line"></i> Market Selection</h3>
-                    </div>
-                    <div class="card-content">
-                        <div class="market-controls">
-                            <select id="marketSelect" class="market-select">
-                                <option value="">Loading markets...</option>
-                            </select>
-                            <button id="refreshMarkets" class="btn btn-secondary">
-                                <i class="fas fa-sync-alt"></i> Refresh
-                            </button>
-                            <button id="connectBtn" class="btn btn-primary">
-                                <i class="fas fa-plug"></i> Connect
-                            </button>
+                        
+                        <div class="spread-compact">
+                            <div id="spreadValue" class="spread-value-compact">--</div>
+                            <div class="spread-label-compact">Spread</div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Orderbook Display -->
-                <div class="orderbook-card">
-                    <div class="card-header">
-                        <h3 id="currentMarket">Select a market to view orderbook</h3>
-                        <div class="market-stats">
-                            <span id="lastPrice" class="stat">Last: --</span>
-                            <span id="volume24h" class="stat">Vol: --</span>
-                            <span id="spread" class="stat">Spread: --</span>
-                        </div>
-                    </div>
-                    
-                    <div class="card-content">
-                        <div class="orderbook">
-                            <!-- Bids (Buy Orders) -->
-                            <div class="orderbook-side bids">
-                                <div class="side-header">
-                                    <h4><i class="fas fa-arrow-up text-green"></i> Bids</h4>
-                                </div>
-                                <div class="orderbook-table">
-                                    <div class="table-header">
-                                        <span>Price</span>
-                                        <span>Amount</span>
-                                        <span>Total</span>
-                                    </div>
-                                    <div id="bidsList" class="orders-list">
-                                        <div class="no-data">No bid data available</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Spread Display -->
-                            <div class="spread-display">
-                                <div id="spreadValue" class="spread-value">--</div>
-                                <div class="spread-label">Spread</div>
-                            </div>
-
-                            <!-- Asks (Sell Orders) -->
-                            <div class="orderbook-side asks">
-                                <div class="side-header">
-                                    <h4><i class="fas fa-arrow-down text-red"></i> Asks</h4>
-                                </div>
-                                <div class="orderbook-table">
-                                    <div class="table-header">
-                                        <span>Price</span>
-                                        <span>Amount</span>
-                                        <span>Total</span>
-                                    </div>
-                                    <div id="asksList" class="orders-list">
-                                        <div class="no-data">No ask data available</div>
-                                    </div>
-                                </div>
+                        
+                        <div class="orderbook-side-compact bids-compact">
+                            <div class="side-label">Bids</div>
+                            <div id="bidsList" class="orders-compact">
+                                <div class="no-data-compact">No data</div>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- Market Info Panel -->
-                <div class="info-panel">
-                    <div class="info-section">
-                        <h3><i class="fas fa-info-circle"></i> Market Information</h3>
-                        <div id="marketInfo" class="info-content">
-                            <div class="info-item">
-                                <span class="label">Status:</span>
-                                <span id="marketStatus" class="value">Not connected</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="label">Last Update:</span>
-                                <span id="lastUpdate" class="value">--</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="label">Data Points:</span>
-                                <span id="dataPoints" class="value">0</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="info-section">
-                        <h3><i class="fas fa-chart-bar"></i> Quick Stats</h3>
-                        <div class="stats-grid">
-                            <div class="stat-card">
-                                <div class="stat-value" id="totalBids">0</div>
-                                <div class="stat-label">Total Bids</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-value" id="totalAsks">0</div>
-                                <div class="stat-label">Total Asks</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-value" id="bestBid">--</div>
-                                <div class="stat-label">Best Bid</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-value" id="bestAsk">--</div>
-                                <div class="stat-label">Best Ask</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            </section>
         </main>
+
+        <!-- Bottom Status Bar -->
+        <footer class="status-bar">
+            <div class="status-item">
+                <i class="fas fa-clock"></i>
+                <span id="lastUpdate">--</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-database"></i>
+                <span id="dataPoints">0</span> data points
+            </div>
+            <div class="status-item">
+                <i class="fas fa-tachometer-alt"></i>
+                <span id="tickRate">0</span> ticks/s
+            </div>
+        </footer>
     </div>
 
     <script src="app.js"></script>
