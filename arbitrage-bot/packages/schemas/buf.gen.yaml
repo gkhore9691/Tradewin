@@ -1,0 +1,23 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: csharp_namespace
+      value: Arbitrage.V1
+    - file_option: go_package
+      value: github.com/arbitrage/schemas/v1
+    - file_option: java_package
+      value: com.arbitrage.v1
+    - file_option: php_namespace
+      value: Arbitrage\\V1
+plugins:
+  - name: js
+    out: dist/generated/js
+    opt: import_style=commonjs,binary
+  - name: ts
+    out: dist/generated/ts
+    opt: outputServices=generic-definitions,outputServices=default
+  - name: rust
+    out: src/generated
+    opt: build
+

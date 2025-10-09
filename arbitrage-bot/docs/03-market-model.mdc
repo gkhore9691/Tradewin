@@ -1,0 +1,57 @@
+---
+alwaysApply: true
+---
+
+Entities
+
+Base currencies: INR, USDT
+
+Symbols: e.g., BTC/INR, BTC/USDT, and USDT/INR
+
+Legs:
+
+Straight: INR→USDT (buy USDT/INR ask) → COIN (buy COIN/USDT ask) → INR (sell COIN/INR bid)
+
+Reverse: INR→COIN (buy COIN/INR ask) → USDT (sell COIN/USDT bid) → INR (sell USDT/INR bid)
+
+Triangle enumeration
+
+For each coin X that has both X/INR and X/USDT, triangles are:
+
+TriangleStraight(X) = [USDT/INR (buy), X/USDT (buy), X/INR (sell)]
+
+TriangleReverse(X) = [X/INR (buy), X/USDT (sell), USDT/INR (sell)]
+
+Fees, precision, constraints
+
+Per-market:
+
+pricePrecision, quantityPrecision, minQty, minNotional, maxQty (from markets metadata).
+
+Fee model:
+
+Start with taker fee on all three legs (conservative).
+
+Parametrize maker/taker per leg (future).
+
+Edge calculation (per 03-market-model formulas)
+Straight
+usdt = inr0 / usdtinr.ask * (1 - fee_taker)
+coin = usdt / xusdt.ask * (1 - fee_taker)
+inr_final = coin * xinr.bid * (1 - fee_taker)
+edge = inr_final / inr0 - 1
+
+Reverse
+coin = inr0 / xinr.ask * (1 - fee_taker)
+usdt = coin * xusdt.bid * (1 - fee_taker)
+inr_final = usdt * usdtinr.bid * (1 - fee_taker)
+edge = inr_final / inr0 - 1
+
+
+Apply rounding/precision at each leg’s quantity BEFORE computing the next leg. Enforce minQty and minNotional for each trade.
+
+Liquidity & slippage guard
+
+Require cumulative depth at least qty_needed * (1 + slip_buffer) within top K levels.
+
+Maintain depth snapshot up to K=5; if insufficient, skip signal.

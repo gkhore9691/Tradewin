@@ -1,0 +1,57 @@
+---
+alwaysApply: true
+---
+
+Metrics (Prometheus)
+
+Gateway:
+
+tick_ingest_latency_ns (summary)
+
+socket_disconnects_total, reconnects_total
+
+order_post_latency_ms (hist)
+
+order_rejects_total{reason}
+
+Engine:
+
+decision_latency_ns (hist)
+
+triangles_evaluated_total
+
+signals_emitted_total{route}
+
+edge_bps (hist)
+
+cooldown_skips_total
+
+Strategy:
+
+pnl_inr (gauge)
+
+fill_hit_rate (gauge)
+
+slippage_bps (hist)
+
+hedges_total
+
+Dashboards
+
+“Hot Path Latency”
+
+“P&L & Hit Rate”
+
+“Symbol Health (per route)”
+
+“Errors & Rejects”
+
+Alerts
+
+Private stream stale > 5s
+
+Decision latency p99 > 10ms for 5m
+
+Reject rate > 5% over 10m
+
+Net P&L < −X INR over 1h

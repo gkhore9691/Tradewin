@@ -1,0 +1,21 @@
+---
+alwaysApply: true
+---
+
+Inventory split (startup):
+
+60% INR, 40% USDT, and no coin inventory initially.
+
+After data, optionally pre-stock small coin amounts for reverse route.
+
+Per-route caps:
+
+TriangleStraight(X) and TriangleReverse(X) have independent INR caps.
+
+Exposure limits:
+
+Max open exposure = 1 leg * SYMBOL_CAP_INR.
+
+Hedge policy:
+
+If partial fill leaves exposure > E, immediately market out on same pair.

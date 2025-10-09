@@ -1,0 +1,16 @@
+---
+alwaysApply: true
+---
+
+
+✅ Receives depth ticks for all required markets; updates K-level cache.
+
+✅ Engine emits bundles with correct rounding and constraint checks.
+
+✅ End-to-end paper trading with private fills recorded in ClickHouse.
+
+✅ Alerting in place; dashboards show latency < budgets on dev.
+
+✅ Kill switch stops new bundles; hedges still operate.
+
+✅ Backtester runs on recorded dev ticks and outputs HTML/CSV report.

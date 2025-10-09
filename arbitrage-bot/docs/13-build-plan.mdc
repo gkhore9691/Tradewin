@@ -1,0 +1,83 @@
+---
+alwaysApply: true
+---
+
+Phase A — Schemas & Types
+
+ Create packages/schemas with Protobuf/FlatBuffers for TopOfBook, MarketMeta, OrderBundle, Execution.
+
+ Generate TS and Rust bindings (Buf or flatc).
+
+ Add packages/utils/decimal.ts with exact decimal ops & rounding helpers (and Rust equivalent).
+
+Phase B — Gateway (Node/TS)
+
+ Implement socket.ts:
+
+Connect with transports: ['websocket'], version pin.
+
+Subscribe to all required markets (build list from markets metadata).
+
+Normalize messages → TopOfBook; compute K-level micro-depth.
+
+Push to engine over UDS (binary frames).
+
+ Implement rest.ts:
+
+placeOrder({market, side, qty, tif, price?})
+
+Idempotent clientOrderId (ULID ≤ 36 chars).
+
+Retry/backoff with per-route rate limiter.
+
+ Implement private.ts:
+
+Auth handshake.
+
+Listen for order & balance events; persist to ClickHouse.
+
+ Implement server.ts:
+
+/bundles endpoint accepting OrderBundle for manual tests.
+
+Health endpoints /healthz, /readyz.
+
+ Export Prometheus metrics via /metrics.
+
+Phase C — Engine (Rust)
+
+ Build market graph:
+
+Load MarketMeta map; enumerate triangles, build trianglesByMarket index.
+
+ Tick pipeline:
+
+MPSC (bounded) channel from UDS → worker threads → compute.
+
+Compute edge & sizing with constraints, K-level liquidity guard.
+
+Cooldown & de-dup logic.
+
+ Emit OrderBundle to gateway over UDS.
+
+ Expose metrics with prometheus crate.
+
+ Config via config.toml + env overrides.
+
+Phase D — Storage & Ops
+
+ ClickHouse client in gateway; buffered insert (every 200ms or 5k rows).
+
+ Grafana dashboards (JSON) + Prometheus alerts (YAML).
+
+ Dockerfiles: small Alpine base, non-root user.
+
+ Terraform: VPC + EC2 in ap-south-1, SG egress only; IAM role for secrets.
+
+Phase E — Testing
+
+ Unit tests for math/precision (TS + Rust).
+
+ Integration test harness: fake depth generator → expect bundles.
+
+ Backtester: load ticks CSV → policy → P&L report.

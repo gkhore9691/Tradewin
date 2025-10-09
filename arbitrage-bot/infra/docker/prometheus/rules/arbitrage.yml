@@ -1,0 +1,75 @@
+groups:
+  - name: arbitrage.rules
+    rules:
+      - alert: HighLatency
+        expr: histogram_quantile(0.99, decision_latency_ns_bucket) > 10000000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High decision latency detected"
+          description: "Decision latency p99 is {{ $value }}ns for more than 5 minutes"
+
+      - alert: LowHitRate
+        expr: fill_hit_rate < 0.65
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low fill hit rate"
+          description: "Fill hit rate is {{ $value }} for more than 10 minutes"
+
+      - alert: HighRejectRate
+        expr: rate(order_rejects_total[10m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High order reject rate"
+          description: "Order reject rate is {{ $value }} for more than 5 minutes"
+
+      - alert: PrivateStreamStale
+        expr: time() - private_stream_last_update > 5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Private stream is stale"
+          description: "Private stream has not been updated for {{ $value }} seconds"
+
+      - alert: EngineDisconnected
+        expr: up{job="engine"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Arbitrage engine is down"
+          description: "The arbitrage engine has been down for more than 1 minute"
+
+      - alert: GatewayDisconnected
+        expr: up{job="gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Gateway is down"
+          description: "The gateway has been down for more than 1 minute"
+
+      - alert: NegativePnL
+        expr: pnl_inr < -1000
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Negative P&L detected"
+          description: "P&L is {{ $value }} INR for more than 1 hour"
+
+      - alert: HighSlippage
+        expr: histogram_quantile(0.95, slippage_bps_bucket) > 15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High slippage detected"
+          description: "Slippage p95 is {{ $value }} bps for more than 5 minutes"
+

@@ -1,0 +1,94 @@
+---
+alwaysApply: true
+---
+4.1 FlatBuffers (or Protobuf) schemas (packages/schemas)
+
+Tick (top-of-book + micro-depth):
+
+message TopOfBook {
+  string market = 1;           // e.g., "BTCUSDT", "BTCINR", "USDTINR"
+  double bestBid = 2;
+  double bestBidQty = 3;
+  double bestAsk = 4;
+  double bestAskQty = 5;
+  DepthLevel depthBid[5];      // optional, K<=5
+  DepthLevel depthAsk[5];      // optional
+  int64  ts_exchange_ns = 6;   // if available
+  int64  ts_gateway_ns = 7;    // gateway arrival
+}
+message DepthLevel { double px = 1; double qty = 2; }
+
+
+MarketMeta:
+
+message MarketMeta {
+  string market = 1;                // "BTCUSDT" etc.
+  string base = 2;                  // "BTC"
+  string quote = 3;                 // "USDT"/"INR"
+  uint32 pricePrecision = 4;
+  uint32 quantityPrecision = 5;
+  double minQty = 6;
+  double minNotional = 7;
+  double maxQty = 8;
+}
+
+
+Decision / OrderBundle:
+
+message OrderBundle {
+  string triangleId = 1;      // e.g., "BTC:STRAIGHT"
+  string route = 2;           // "STRAIGHT" | "REVERSE"
+  Leg legs[3] = 3;            // sequential
+  double expectedEdge = 4;    // after fees
+  double capitalINR = 5;      // starting INR for the route
+  string riskToken = 6;       // per-bundle id for hedges/cancels
+  int64  ts_engine_ns = 7;
+}
+message Leg {
+  string market = 1;
+  string side = 2;            // "BUY" | "SELL"
+  double price = 3;           // market/IOC -> price=best±ε
+  double qty = 4;             // after rounding & minQty check
+  string timeInForce = 5;     // "IOC" | "FOK" | "GTC"
+  string intent = 6;          // "TAKER"
+}
+
+
+Execution reports:
+
+message Execution {
+  string clientOrderId = 1;
+  string market = 2;
+  string side = 3;
+  double price = 4;
+  double qty = 5;
+  double fee = 6;
+  string feeAsset = 7;
+  string status = 8;          // NEW|PARTIAL|FILLED|CANCELED|REJECTED
+  string riskToken = 9;
+  int64  ts_ack_ns = 10;
+}
+
+4.2 Gateway (Node) public API (internal)
+
+POST /orders → place single order
+
+POST /bundles → place 3-leg bundle (sequential)
+Body: OrderBundle
+Behavior: submits leg-1, waits for ack/fill ≥ threshold, then leg-2, then leg-3; if any leg fails or slips, hedge → close exposure using opposite side on same market.
+
+GET /balances
+
+GET /markets → list meta
+
+WebSocket private: receive Execution + balance updates.
+
+For Cursor: generate gateway-node/src/server.ts with these routes and a Broker class that translates OrderBundle → REST calls + private socket listeners.
+
+4.3 Engine (Rust) IPC
+
+UDS path: /tmp/arb_engine.sock
+
+Frames: FlatBuffers messages TopOfBook (gateway→engine) and OrderBundle (engine→gateway)
+
+Backpressure: bounded MPSC channels (size 4096). Drop stale ticks by market (keep latest only).

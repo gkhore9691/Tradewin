@@ -1,0 +1,26 @@
+# Engine Configuration
+entry_threshold_bps = 8
+cooldown_ms = 250
+fee_taker_bps = 20
+min_fill_fraction_l1 = 0.85
+min_fill_fraction_l2 = 0.90
+triangle_cap_inr = 10000
+symbol_cap_inr = 30000
+book_max_age_ms = 1500
+bid_ask_levels = 20
+aggressive_eps_bps = 2
+reject_rate_limit_bps = 500
+slippage_limit_bps = 15
+quiet_period_ms = 60000
+
+# UDS Configuration
+uds_path = "/tmp/arb_engine.sock"
+
+# Symbols to trade
+symbols = ["BTC", "ETH", "BNB", "ADA", "SOL", "DOT", "MATIC", "AVAX", "LINK", "UNI"]
+
+# Slippage caps per leg
+[slip_cap_bps]
+leg1 = 8
+leg2 = 10
+leg3 = 8

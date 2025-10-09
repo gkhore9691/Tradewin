@@ -1,0 +1,34 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'gateway'
+    static_configs:
+      - targets: ['gateway:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'engine'
+    static_configs:
+      - targets: ['engine:9091']  # Assuming engine exposes metrics on port 9091
+    scrape_interval: 5s
+
+  - job_name: 'clickhouse'
+    static_configs:
+      - targets: ['clickhouse:9363']  # ClickHouse metrics endpoint
+    scrape_interval: 15s
+

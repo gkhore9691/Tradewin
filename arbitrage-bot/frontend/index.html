@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arbitrage Bot Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">⚡</div>
+                    <span class="logo-text">Arbitrage Bot</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <h3 class="nav-title">Markets</h3>
+                    <div class="search-container">
+                        <i class="fas fa-search search-icon"></i>
+                        <input 
+                            type="text" 
+                            id="marketSearch" 
+                            class="search-input" 
+                            placeholder="Search markets..."
+                        />
+                    </div>
+                    <div class="nav-items" id="marketList">
+                        <!-- Market list will be populated here -->
+                    </div>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="connection-status">
+                    <div class="status-indicator" id="connectionStatus">
+                        <div class="status-dot"></div>
+                        <span class="status-text">Connecting...</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-left">
+                    <h1 class="page-title">Market Overview</h1>
+                    <p class="page-subtitle">Real-time arbitrage opportunities</p>
+                </div>
+                <div class="header-right">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalMarkets">0</div>
+                            <div class="stat-label">Active Markets</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalVolume">0</div>
+                            <div class="stat-label">Total Volume</div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area">
+                <!-- Opportunity Feed -->
+                <div class="opportunity-feed-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-bolt"></i> Arbitrage Opportunities</h3>
+                        <div class="opportunity-stats">
+                            <span id="oppCount" class="stat-badge">0 opportunities</span>
+                            <span id="bestEdge" class="stat-badge">Best: --</span>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div id="opportunityFeed" class="opportunity-feed">
+                            <div class="no-opportunities">
+                                <i class="fas fa-clock"></i>
+                                <p>Waiting for arbitrage opportunities...</p>
+                                <small>The engine is analyzing market data in real-time</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Market Selector -->
+                <div class="market-selector-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-chart-line"></i> Market Selection</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="market-controls">
+                            <select id="marketSelect" class="market-select">
+                                <option value="">Loading markets...</option>
+                            </select>
+                            <button id="refreshMarkets" class="btn btn-secondary">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                            <button id="connectBtn" class="btn btn-primary">
+                                <i class="fas fa-plug"></i> Connect
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Orderbook Display -->
+                <div class="orderbook-card">
+                    <div class="card-header">
+                        <h3 id="currentMarket">Select a market to view orderbook</h3>
+                        <div class="market-stats">
+                            <span id="lastPrice" class="stat">Last: --</span>
+                            <span id="volume24h" class="stat">Vol: --</span>
+                            <span id="spread" class="stat">Spread: --</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-content">
+                        <div class="orderbook">
+                            <!-- Bids (Buy Orders) -->
+                            <div class="orderbook-side bids">
+                                <div class="side-header">
+                                    <h4><i class="fas fa-arrow-up text-green"></i> Bids</h4>
+                                </div>
+                                <div class="orderbook-table">
+                                    <div class="table-header">
+                                        <span>Price</span>
+                                        <span>Amount</span>
+                                        <span>Total</span>
+                                    </div>
+                                    <div id="bidsList" class="orders-list">
+                                        <div class="no-data">No bid data available</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Spread Display -->
+                            <div class="spread-display">
+                                <div id="spreadValue" class="spread-value">--</div>
+                                <div class="spread-label">Spread</div>
+                            </div>
+
+                            <!-- Asks (Sell Orders) -->
+                            <div class="orderbook-side asks">
+                                <div class="side-header">
+                                    <h4><i class="fas fa-arrow-down text-red"></i> Asks</h4>
+                                </div>
+                                <div class="orderbook-table">
+                                    <div class="table-header">
+                                        <span>Price</span>
+                                        <span>Amount</span>
+                                        <span>Total</span>
+                                    </div>
+                                    <div id="asksList" class="orders-list">
+                                        <div class="no-data">No ask data available</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Market Info Panel -->
+                <div class="info-panel">
+                    <div class="info-section">
+                        <h3><i class="fas fa-info-circle"></i> Market Information</h3>
+                        <div id="marketInfo" class="info-content">
+                            <div class="info-item">
+                                <span class="label">Status:</span>
+                                <span id="marketStatus" class="value">Not connected</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Last Update:</span>
+                                <span id="lastUpdate" class="value">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Data Points:</span>
+                                <span id="dataPoints" class="value">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-section">
+                        <h3><i class="fas fa-chart-bar"></i> Quick Stats</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-value" id="totalBids">0</div>
+                                <div class="stat-label">Total Bids</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="totalAsks">0</div>
+                                <div class="stat-label">Total Asks</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="bestBid">--</div>
+                                <div class="stat-label">Best Bid</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="bestAsk">--</div>
+                                <div class="stat-label">Best Ask</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

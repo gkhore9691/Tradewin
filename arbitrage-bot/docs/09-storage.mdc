@@ -1,0 +1,39 @@
+---
+alwaysApply: true
+---
+
+ClickHouse tables (MergeTree)
+
+CREATE TABLE ticks (
+  ts DateTime64(9),
+  market String,
+  bestBid Float64, bestBidQty Float64,
+  bestAsk Float64, bestAskQty Float64,
+  depthBid Array(Tuple(Float64,Float64)),
+  depthAsk Array(Tuple(Float64,Float64)),
+  src String DEFAULT 'gateway'
+) ENGINE = MergeTree() ORDER BY (ts, market);
+
+CREATE TABLE decisions (
+  ts DateTime64(9),
+  triangle String, route String,
+  expectedEdge Float64,
+  capitalINR Float64,
+  legs Array(Tuple(String,String,Float64,Float64)) -- (market, side, price, qty)
+) ENGINE = MergeTree() ORDER BY (ts, triangle);
+
+CREATE TABLE orders (
+  ts DateTime64(9),
+  clientOrderId String,
+  market String, side String,
+  price Float64, qty Float64,
+  status String, riskToken String
+) ENGINE = MergeTree() ORDER BY (ts, market);
+
+CREATE TABLE fills (
+  ts DateTime64(9),
+  clientOrderId String,
+  market String, side String,
+  price Float64, qty Float64,
+  fee Float64, feeAsset String
+) ENGINE = MergeTree() ORDER BY (ts, market);

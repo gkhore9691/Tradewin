@@ -1,0 +1,54 @@
+# Multi-stage build for Rust Engine
+FROM rust:1.75-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache musl-dev
+
+WORKDIR /app
+
+# Copy Cargo files
+COPY apps/engine-rust/Cargo.toml Cargo.lock ./
+
+# Create a dummy main.rs to cache dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+
+# Build dependencies (this layer will be cached)
+RUN cargo build --release
+
+# Copy source code
+COPY apps/engine-rust/src ./src
+
+# Build the actual application
+RUN cargo build --release
+
+# Production stage
+FROM alpine:3.18 AS production
+
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates
+
+# Create non-root user
+RUN addgroup -g 1001 -S engine && \
+    adduser -S engine -u 1001
+
+WORKDIR /app
+
+# Copy built binary
+COPY --from=builder --chown=engine:engine /app/target/release/arbitrage-engine ./arbitrage-engine
+
+# Copy configuration
+COPY --from=builder --chown=engine:engine /app/config.toml ./config.toml
+
+# Create socket directory
+RUN mkdir -p /tmp && chown engine:engine /tmp
+
+# Switch to non-root user
+USER engine
+
+# Health check (check if socket file exists)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD test -S /tmp/arb_engine.sock || exit 1
+
+# Start the engine
+CMD ["./arbitrage-engine"]
+

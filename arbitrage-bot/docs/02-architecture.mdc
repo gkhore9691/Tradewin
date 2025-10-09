@@ -1,0 +1,54 @@
+---
+alwaysApply: true
+---
+
+Components
+
+Gateway (Node/TS)
+
+Connects to exchange Socket.IO public depth streams (INR book, USDT book for each coin; plus USDT/INR).
+
+Maintains in-memory top-of-book (best bid/ask + volume) and relevant levels (up to N=5 for slippage checks).
+
+Authenticated endpoints: REST order placement/cancel; private user stream for fills/balances.
+
+Sends normalized ticks to engine over UDS (Unix domain socket) using FlatBuffers (or Protobuf).
+
+Arb Engine (Rust)
+
+Holds the market graph and all valid triangles.
+
+On tick, recomputes only affected triangles; outputs OrderBundle decisions if edge exceeds thresholds.
+
+Deterministic decimal math; precision & min-notional enforcement.
+
+Emits metrics and structured logs.
+
+Store
+
+ClickHouse for ticks (top-of-book snapshots), decisions, orders, fills, balances, and P&L.
+
+Write-ahead appenders; no DB in the hot path.
+
+Ops & Observability
+
+Prometheus exporters from gateway and engine.
+
+Grafana dashboards: latency, edge distribution, symbol health, error codes, disconnects.
+
+Alertmanager rules (SLO/SLA).
+
+Data flow (hot path)
+Exchange Socket.IO → gateway normalize → UDS frame → engine compute → UDS decision → gateway place orders (REST) → private socket events → gateway state & CH writes
+
+Latency budget (targets)
+
+Socket tick → Node parse: ≤ 1ms
+
+Node → Rust (UDS): ≤ 0.2ms
+
+Engine compute (impacted triangles): ≤ 2ms
+
+Decision → REST order POST: ≤ 1ms
+
+Exchange ack p99 (network/exchange): outside control; monitor & adapt

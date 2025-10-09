@@ -1,0 +1,480 @@
+---
+alwaysApply: true
+---
+
+1) Base URLs
+
+Public market data (spot & futures)
+https://public.coindcx.com 
+CoinDCX Docs
+
+Authenticated REST (account + trading)
+https://api.coindcx.com 
+CoinDCX
+
+Note: CoinDCX’s real-time feeds are provided publicly for REST (order books, trades, candles). Their help/intro references Socket.IO for streaming; you’ll already have the WS endpoint internally. This spec focuses on the shapes and REST fallbacks and assumes your WS messages use the same fields as shown below.
+
+2) Authentication (REST, private)
+
+All private endpoints require:
+
+Header: X-AUTH-APIKEY: <api_key>
+
+Header: X-AUTH-SIGNATURE: <hmac_sha256>
+
+Body: JSON with a timestamp plus endpoint-specific params
+
+Signature is HMAC-SHA256 over the raw JSON body using your secret. 
+CoinDCX Docs
+
+Python example (pattern used across endpoints):
+
+body = {"timestamp": int(time.time()*1000), ...}
+json_body = json.dumps(body, separators=(',', ':'))
+signature = hmac.new(secret_bytes, json_body.encode(), hashlib.sha256).hexdigest()
+headers = {
+  "Content-Type": "application/json",
+  "X-AUTH-APIKEY": key,
+  "X-AUTH-SIGNATURE": signature
+}
+
+
+CoinDCX examples show both “seconds” and code that multiplies by 1000; their examples compute milliseconds. We follow ms consistently. 
+CoinDCX
+
+3) Public Market Data (Spot)
+3.1 Active markets
+
+GET /exchange/v1/markets (base: api.coindcx.com)
+Returns list of active market symbols (e.g., BTCUSDT, BTCINR). Use for symbol hygiene and cross-mapping between USDT↔INR universes. 
+CoinDCX
+
+3.2 Market metadata / trading rules
+
+GET /exchange/v1/market_details (base: api.coindcx.com)
+Returns per-market trading rules: precisions, min/max quantity/price/notional, allowed order types, pair string (B-<BASE>_<QUOTE>), etc. Use to validate orders & rounding. Key fields:
+coindcx_name, symbol, base_currency_precision, target_currency_precision, min_quantity, min_price, min_notional, order_types, pair (e.g., B-BTC_USDT). 
+CoinDCX
+
+3.3 Order book (spot)
+
+GET /market_data/orderbook?pair=<PAIR> (base: public.coindcx.com)
+pair is the ecode-prefixed name from Market Details, e.g., B-BTC_USDT.
+Response: two maps { price: quantity } for bids, asks. Use for bootstrapping your local L2 before switching to sockets. 
+CoinDCX
+
+3.4 Recent trades (spot)
+
+GET /market_data/trade_history?pair=<PAIR>&limit=<N> (base: public.coindcx.com)
+Items: p (price), q (qty), s (symbol), T (ts ms), m (is maker). Use as a sanity feed & for last price reference. 
+CoinDCX Docs
+
+3.5 Candles (spot/futures shared endpoint)
+
+GET /market_data/candles?pair=<PAIR>&interval=<1m|5m|60m|1D>&startTime=&endTime=&limit=
+Returns array of bars: open, high, low, volume, close, time. 
+CoinDCX Docs
+
+4) Public Market Data (Futures, for parity & structure)
+
+Some futures endpoints are helpful for understanding event schema (same field names are used in socket messages you shared: ts, vs, E, asks, bids, pr, s).
+
+GET /market_data/v3/orderbook/{instrument}-futures/<depth> on public.coindcx.com
+Depth: 10|20|50. Response example shows:
+ts (timestamp), vs (version), asks/bids as {price: qty} maps. 
+CoinDCX
+
+This mirrors the spot book message shape you posted (e.g., ts, vs, asks, bids, E, pr:"spot", s:"BTCUSDT"), making it safe to implement a single decoder for spot & futures socket payloads. 
+CoinDCX
+
+5) Private (Account & Trading)
+5.1 Balances
+
+POST /exchange/v1/users/balances
+Response: array of { "currency": "BTC", "balance": 1.167, "locked_balance": 2.1 }.
+Use locked_balance to track funds tied up in open orders. 
+CoinDCX
+
+5.2 User info
+
+POST /exchange/v1/users/info
+Returns identifiers (e.g., coindcx_id, name, email). Useful for ops/logging. 
+CoinDCX
+
+5.3 Place order (spot)
+
+POST /exchange/v1/orders/create
+Body (core):
+market (symbol, e.g., BTCINR), total_quantity, price_per_unit, side (buy|sell), order_type (market_order|limit_order|stop_limit|take_profit), timestamp.
+Response: order record with id, status, remaining_quantity, fees, etc. 
+CoinDCX
+
+5.4 Cancel / manage orders
+
+POST /exchange/v1/orders/cancel — cancel by id or client_order_id + timestamp. 
+CoinDCX Docs
+
+POST /exchange/v1/orders/cancel_by_ids — cancel multiple by ids or client_order_ids. 
+CoinDCX Docs
+
+POST /exchange/v1/orders/cancel_all — cancel all for a market (optional side). 
+CoinDCX Docs
+
+POST /exchange/v1/orders/edit — modify price_per_unit for an existing order (by id or client_order_id). 
+CoinDCX Docs
+
+POST /exchange/v1/orders/active_orders — list active orders (filter by market, optional side). 
+CoinDCX Docs
+
+POST /exchange/v1/orders/active_orders_count — count of active orders per market/side. 
+CoinDCX Docs
+
+POST /exchange/v1/orders/status_multiple — fetch statuses by ids or client_order_ids. 
+CoinDCX Docs
+
+POST /exchange/v1/orders/trade_history — your fills/trade history. 
+CoinDCX Docs
+
+Implementation notes
+
+Always include timestamp in body and sign the exact JSON you send. 
+CoinDCX Docs
+
+Respect per-market constraints from Market Details: precision, min_notional, min_quantity, and allowed order_types. Validate client-side to avoid rejects. 
+CoinDCX
+
+6) Real-time streams (Socket.IO)
+
+CoinDCX’s help pages state Socket.IO is used; futures docs and your sample show a unified event shape:
+
+{
+  "ts": 1714653301197,         // event timestamp (ms)
+  "vs": 10037615,              // version / sequence for book
+  "asks": { "0.10828":"260", ... },
+  "bids": { "0.10758":"38692.1224", ... },
+  "E": 1714653301194,          // event time (book-specific)
+  "pr": "spot",                // 'spot' or 'futures'
+  "s": "BTCUSDT"               // symbol
+}
+
+
+Treat each message as a partial depth update keyed by stringified price to string quantity (0 means remove).
+
+Maintain per-pair monotonic vs (version) to apply updates in order and detect gaps; if a gap is detected, re-snapshot via REST orderbook and replay only newer deltas. (Fields and book shape consistent with futures order book docs.) 
+CoinDCX
+
+Heartbeat
+Futures docs explicitly require a heartbeat check per channel; implement ping/pong or a timer that resubscribes/reconnects if no data within a tight SLA (e.g., 2–3s). 
+CoinDCX
+
+Note: CoinDCX’s public docs don’t publish a canonical WS URL on the help pages. Since you’re already receiving messages, keep your internal WS URL in infra config. Use this section’s schema and sequencing logic to implement the consumer. (If needed, REST endpoints above provide fallback/bootstrapping.) 
+CoinDCX
+
+7) Triangular arbitrage mapping (USDT↔INR)
+
+Use these three legs (example for COIN):
+
+Straight:
+INR → USDT (market: USDTINR) → USDT → COIN (market: COINUSDT) → COIN → INR (market: COININR)
+
+Reverse:
+INR → COIN (market: COININR) → COIN → USDT (market: COINUSDT) → USDT → INR (market: USDTINR)
+
+Symbols to use come from /exchange/v1/markets; trading rules/precisions from /exchange/v1/market_details. 
+CoinDCX
++1
+
+Order types & TIF:
+
+For tight latency and guaranteed execution within spread, prefer IOC (if supported on spot) to avoid resting exposure; CoinDCX help explains IOC semantics. Otherwise use market/limit with conservative slippage caps. 
+Help & Support
+
+8) Request/Response Schemas (ready for DTOs)
+8.1 /exchange/v1/market_details (GET) → MarketDetail[]
+type MarketDetail = {
+  coindcx_name: string;                // e.g., "BTC/USDT"
+  symbol: string;                      // e.g., "BTCUSDT"
+  ecode: string;                       // "B" or partner code
+  pair: string;                        // e.g., "B-BTC_USDT"
+  base_currency_short_name: string;    // "USDT"
+  target_currency_short_name: string;  // "BTC"
+  base_currency_name: string;
+  target_currency_name: string;
+  base_currency_precision: number;
+  target_currency_precision: number;
+  min_quantity: string;                // decimal as string
+  max_quantity: string;
+  min_price: string;
+  max_price: string;
+  min_notional: string | null;
+  step: string;                        // min tick increment for target qty
+  order_types: ("limit_order"|"market_order"|"stop_limit"|"take_profit")[];
+  status: "Active" | "Inactive";
+  // margin fields may appear (max_leverage, etc.)
+}
+
+
+CoinDCX
+
+8.2 /market_data/orderbook?pair= (GET) → OrderBookL2
+type OrderBookL2 = {
+  bids: Record<string /*price*/, string /*qty*/>;
+  asks: Record<string /*price*/, string /*qty*/>;
+}
+
+
+CoinDCX
+
+8.3 /market_data/trade_history?pair=&limit= (GET) → PublicTrade[]
+type PublicTrade = {
+  p: number;   // price
+  q: number;   // quantity
+  s: string;   // symbol
+  T: number;   // timestamp (ms)
+  m: boolean;  // is_maker
+}
+
+
+CoinDCX Docs
+
+8.4 /exchange/v1/users/balances (POST) → Balance[]
+type Balance = {
+  currency: string;        // "BTC"
+  balance: number;         // free + locked
+  locked_balance: number;  // in open orders
+}
+
+
+CoinDCX
+
+8.5 /exchange/v1/orders/create (POST) → CreateOrderResponse
+
+Request
+
+type CreateOrderRequest = {
+  market: string; // "BTCINR" | "BTCUSDT" ...
+  total_quantity: string;  // dec-string
+  price_per_unit?: string; // required for limit/stop/take
+  side: "buy"|"sell";
+  order_type: "market_order"|"limit_order"|"stop_limit"|"take_profit";
+  client_order_id?: string;
+  timestamp: number; // ms
+}
+
+
+Response (excerpt)
+
+type OrderRecord = {
+  id: string;
+  client_order_id?: string;
+  market: string;
+  order_type: string;
+  side: "buy"|"sell";
+  status: "open"|"filled"|"cancelled"|"partially_filled";
+  fee_amount?: number;
+  fee?: number;
+  total_quantity: number;
+  remaining_quantity: number;
+  avg_price: number;
+  price_per_unit: number;
+  created_at: string;
+  updated_at: string;
+}
+type CreateOrderResponse = { orders: OrderRecord[] }
+
+
+CoinDCX
+
+8.6 Order management endpoints (POST)
+// /exchange/v1/orders/cancel
+type CancelOrderRequest = {
+  id?: string;
+  client_order_id?: string;
+  timestamp: number; // ms
+};
+
+// /exchange/v1/orders/cancel_by_ids
+type CancelByIdsRequest = {
+  ids?: string[];
+  client_order_ids?: string[];
+  timestamp?: number; // include for safety
+};
+
+// /exchange/v1/orders/cancel_all
+type CancelAllRequest = {
+  market: string;
+  side?: "buy"|"sell";
+  timestamp: number; // ms
+};
+
+// /exchange/v1/orders/active_orders
+type ActiveOrdersRequest = {
+  market: string;
+  side?: "buy"|"sell";
+  timestamp: number; // ms
+};
+
+// /exchange/v1/orders/active_orders_count
+type ActiveOrdersCountRequest = {
+  market: string;
+  side?: "buy"|"sell";
+  timestamp: number; // ms
+};
+
+// /exchange/v1/orders/status_multiple
+type StatusMultipleRequest = {
+  ids?: string[];
+  client_order_ids?: string[];
+  timestamp: number; // ms
+};
+
+// /exchange/v1/orders/trade_history
+type TradeHistoryRequest = {
+  market?: string;
+  timestamp: number; // ms
+};
+
+
+CoinDCX Docs
++1
+
+9) Socket message schema (Order Book)
+
+Use a single parser for both spot & futures deltas. Fields observed in CoinDCX docs and your sample:
+
+type BookDeltaMsg = {
+  ts: number;                   // event time (ms)
+  vs: number;                   // version/sequence
+  asks: Record<string,string>;  // price -> qty (0 to delete)
+  bids: Record<string,string>;
+  E?: number;                   // event ts (book-specific)
+  pr?: "spot"|"futures";
+  s: string;                    // symbol, e.g. "BTCUSDT"
+}
+
+
+Apply price levels in ascending order for asks, descending for bids.
+
+Delete levels where qty is "0" (string zero).
+
+If vs is not prev_vs + 1, consider the feed stale → re-snapshot via REST /market_data/orderbook for that pair and resume. 
+CoinDCX
++1
+
+10) Latency & reliability checklist
+
+Warm snapshot each book with REST before subscribing (or upon reconnect) using /market_data/orderbook?pair=.... 
+CoinDCX
+
+Heartbeat watchdog (disconnect/reconnect or resubscribe if no message within 2–3s). Required by futures doc and good practice for spot as well. 
+CoinDCX
+
+Coalesce & net child orders per leg; prefer IOC semantics when available to avoid resting risk between legs. 
+Help & Support
+
+Validate price/qty rounding and min_notional before submitting using market_details. 
+CoinDCX
+
+11) Example payloads (ready for codegen)
+11.1 Place a limit IOC (if supported) on BTCINR
+POST https://api.coindcx.com/exchange/v1/orders/create
+{
+  "market": "BTCINR",
+  "total_quantity": "0.0025",
+  "price_per_unit": "5010000",
+  "side": "buy",
+  "order_type": "limit_order",
+  "client_order_id": "tri-2025-09-29-btcinr-1",
+  "timestamp": 1732900000000
+}
+
+
+(Headers include X-AUTH-APIKEY and X-AUTH-SIGNATURE as described.) 
+CoinDCX
+
+11.2 Fetch book snapshot for B-BTC_USDT
+GET https://public.coindcx.com/market_data/orderbook?pair=B-BTC_USDT
+
+
+Response:
+
+{
+  "bids": { "11570.67000000": "0.000871", ... },
+  "asks": { "11950.00000000": "17.16624600", ... }
+}
+
+
+CoinDCX
+
+11.3 Balances
+POST https://api.coindcx.com/exchange/v1/users/balances
+{ "timestamp": 1732900000000 }
+
+
+Response:
+
+[
+  {"currency":"INR","balance":125000.0,"locked_balance":0.0},
+  {"currency":"USDT","balance":1500.0,"locked_balance":50.0}
+]
+
+
+CoinDCX
+
+12) Open items / integration notes
+
+WebSocket URL & auth: CoinDCX’s help/intro mentions Socket.IO but does not list public WS URLs on the help pages. Since you already ingest the stream, keep that endpoint & tokening in secure config and wire it to the BookDeltaMsg schema above. (Use REST snapshot + vs continuity for safety.) 
+CoinDCX
+
+Timestamps: Their samples mix “seconds” wording and *1000 code; use milliseconds for private endpoints to match examples and avoid signature mismatches. 
+CoinDCX
+
+Order types on spot: Docs list market_order, limit_order, stop_limit, take_profit. Confirm IOC/FOK support per market via time_in_force (if exposed) or test rejects. (IOC semantics reference provided for CoinDCX.) 
+CoinDCX
++1
+
+13) Quick endpoint index (Spot)
+
+Markets (list): GET /exchange/v1/markets (api) 
+CoinDCX
+
+Market details: GET /exchange/v1/market_details (api) 
+CoinDCX
+
+Order book (snapshot): GET /market_data/orderbook?pair= (public) 
+CoinDCX
+
+Trades (recent): GET /market_data/trade_history?pair=&limit= (public) 
+CoinDCX Docs
+
+Candles: GET /market_data/candles?... (public) 
+CoinDCX Docs
+
+Balances: POST /exchange/v1/users/balances (api) 
+CoinDCX
+
+User info: POST /exchange/v1/users/info (api) 
+CoinDCX Docs
+
+Create order: POST /exchange/v1/orders/create (api) 
+CoinDCX Docs
+
+Cancel: POST /exchange/v1/orders/cancel (api) 
+CoinDCX Docs
+
+Cancel by ids: POST /exchange/v1/orders/cancel_by_ids (api) 
+CoinDCX Docs
+
+Cancel all: POST /exchange/v1/orders/cancel_all (api) 
+CoinDCX Docs
+
+Active orders: POST /exchange/v1/orders/active_orders (api) 
+CoinDCX Docs
+
+Active orders count: POST /exchange/v1/orders/active_orders_count (api) 
+CoinDCX Docs
+
+Status multiple: POST /exchange/v1/orders/status_multiple (api) 
+CoinDCX Docs
+
+Trade history (fills): POST /exchange/v1/orders/trade_history (api)

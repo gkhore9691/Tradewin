@@ -1,0 +1,368 @@
+This document specifies the algorithms used to (1) maintain orderbook state, (2) evaluate triangular arbitrage opportunities across INR/USDT bases, (3) size orders using depth-aware VWAP pricing, and (4) execute with low-latency, risk-controlled policies.
+
+1) Definitions & Notation
+
+Bases: INR, USDT
+
+Symbols: X/INR, X/USDT, USDT/INR (all spot)
+
+Routes
+
+Straight: INR → USDT (BUY) → X (BUY, USDT) → INR (SELL, X/INR)
+
+Reverse: INR → X (BUY, X/INR) → USDT (SELL, X/USDT) → INR (SELL, USDT/INR)
+
+Fee model: taker fee per leg (bps). Maker logic is out-of-scope for v1.
+
+Precision/Constraints per market: pricePrecision, quantityPrecision, minQty, minNotional, maxQty.
+
+All arithmetic is decimal, never floating-point in TypeScript; in Rust, use deterministic decimal or careful f64 with quantization/rounding at each step.
+
+2) Orderbook Model (CoinDCX snapshots)
+
+Each snapshot contains maps:
+asks: { "price": "qty", ... } (string keys/values, many zeros)
+bids: { "price": "qty", ... }
+
+2.1 Normalization (hot path)
+
+Drop zero or negative qty rows.
+
+Convert to arrays of levels { px: Decimal, qty: Decimal }.
+
+Sort:
+
+asks: ascending by px
+
+bids: descending by px
+
+Truncate to top K (config: BID_ASK_LEVELS, default 20) for the hot path.
+
+Record top-of-book (TOB): bestAsk = asks[0].px, bestBid = bids[0].px.
+
+Maintain event timestamp book_ts = E || ts and reject stale updates.
+
+2.2 Staleness & Monotonicity
+
+Reject books older than BOOK_MAX_AGE_MS (default: 1500 ms).
+
+Only accept an update if incoming_ts ≥ current_ts for that market.
+
+3) Depth Primitives
+3.1 VWAP Fill (multi-level simulation)
+
+Given a side (BUY → use asks, SELL → use bids) and a desired base quantity qtyWanted, simulate walking the book:
+
+For each level (in sorted order):
+
+take = min(level.qty, remaining)
+
+notional += take * level.px
+
+remaining -= take
+
+worstPx = level.px (last level touched)
+
+Outputs:
+
+filledQty (base units), avgPx = notional / filledQty, worstPx, levelsUsed.
+
+If filledQty < qtyWanted, the book (within K levels) can’t fully satisfy the request.
+
+3.2 Price Impact (bps) vs TOB
+
+BUY: impactBps = (worstPx / bestAsk - 1) * 10_000
+
+SELL: impactBps = (bestBid / worstPx - 1) * 10_000
+
+3.3 Fillability Guard
+
+canFillBuy(asks, qtyWanted, slipCapBps): must fully fill and impactBps ≤ slipCapBps.
+
+canFillSell(bids, qtyWanted, slipCapBps): same idea.
+
+slipCapBps is per-leg, per-symbol configurable; typical start: 6–12 bps.
+
+4) Triangle Evaluation (depth-aware)
+
+All computations enforce rounding and constraints at each leg before proceeding to the next.
+
+4.1 Straight Route (INR → USDT → X → INR)
+
+Let inr0 be the INR notional slice for this triangle (decided by sizing policy).
+
+Leg-1: BUY USDT on USDT/INR (using asks)
+
+Goal: spend (approximately) inr0 INR to acquire USDT.
+
+We need a base qty in USDT terms. Two ways:
+
+(A) Notional-targeted) Binary search USDT qty q_usdt so that the VWAP notional in INR (∑ take_i * px_i) ≈ inr0 within tolerance.
+
+(B) Price-targeted) Approximate q_usdt = inr0 / bestAsk, then VWAP-fill and accept the slight notional mismatch.
+
+Guard: canFillBuy(asks_usdtinr, q_usdt, slipCapBps_leg1).
+
+Result: usdt_filled, px_usdtinr_vwap, worstPx_l1.
+
+Leg-2: BUY X on X/USDT (using asks)
+
+Desired coin qty: q_coin = floor_to_precision( usdt_filled / px_xusdt_bestOrVwap ).
+
+Prefer VWAP targeting: simulate buying q_coin base (coin units) on asks_xusdt.
+
+Guard: canFillBuy(asks_xusdt, q_coin, slipCapBps_leg2).
+
+Result: coin_filled, px_xusdt_vwap, worstPx_l2.
+
+Leg-3: SELL X on X/INR (using bids)
+
+Simulate selling coin_filled on bids_xinr.
+
+Guard: canFillSell(bids_xinr, coin_filled, slipCapBps_leg3).
+
+Result: inr_final from VWAP notional, px_xinr_vwap, worstPx_l3.
+
+Fees, Edge
+
+Apply taker fees (bps) on each leg’s notional.
+
+edge = inr_final / inr0 - 1.
+
+Accept only if edge ≥ ENTRY_THRESHOLD_BPS / 10_000.
+
+4.2 Reverse Route (INR → X → USDT → INR)
+
+Leg-1: BUY X on X/INR (asks)
+
+q_coin roughly = inr0 / bestAsk_xinr, then VWAP simulate for exact pricing.
+
+Guard on asks_xinr.
+
+Leg-2: SELL X on X/USDT (bids)
+
+Simulate sell q_coin on bids_xusdt → usdt_filled.
+
+Leg-3: SELL USDT on USDT/INR (bids)
+
+Simulate sell usdt_filled on bids_usdtinr → inr_final.
+
+Fees, Edge as above.
+
+5) Rounding, Min/Max & Precision
+
+At each leg before placing an order:
+
+Round quantity down to quantityPrecision.
+
+Optional: round price to pricePrecision if using aggressive-limits.
+
+Ensure qty ≥ minQty and qty * price ≥ minNotional. If not, skip.
+
+Ensure qty ≤ maxQty (if provided). If violated, cap at maxQty and recheck VWAP fillability.
+
+6) Sizing Policy
+
+Base the route on INR capital slices with per-route/per-symbol caps:
+
+TriangleStraight(X).capINR, TriangleReverse(X).capINR.
+
+Start with quantum = max(2 × minNotional_in_leg1, MIN_QUANTUM_INR) and grow geometrically while:
+
+all three legs pass canFill* guards;
+
+projected edge (after fees) ≥ threshold;
+
+not exceeding caps and available balances.
+
+Implement a simple loop: try size S, if pass → try 2S, else stop at previous S.
+
+7) Cooldown, De-dup & Hysteresis
+
+Cooldown per triangle route, e.g., COOLDOWN_MS = 250. Do not emit a new bundle for the same triangle within cooldown unless:
+
+the computed edge improves by at least DELTA_EDGE_BPS (e.g., +3 bps).
+
+Maintain last-emitted edge and timestamp per triangle route.
+
+8) Execution Policy (sequential, “atomic-ish”)
+
+Leg-1: Place IOC (or aggressive limit at worstPx * (1 + ε) for BUY / (1 - ε) for SELL).
+
+If filled fraction < MIN_FILL_FRACTION_L1 (e.g., 0.85), abort the route and hedge any partial exposure immediately.
+
+Leg-2: Same with MIN_FILL_FRACTION_L2 (e.g., 0.90). If fail/partial → hedge.
+
+Leg-3: Close the loop.
+
+8.1 Hedging Policy
+
+If partial exposure remains (e.g., acquired USDT or coin but route aborted):
+
+Immediately market out (IOC) on the deepest side of the same pair to neutralize.
+
+Record as toxic_fill = true for analytics.
+
+8.2 Pricing for Orders
+
+For IOC/market-like behavior via limit:
+
+BUY price = min( px_vwap * (1 + ε_bps), guard_worstPx * (1 + ε_bps) ).
+
+SELL price = max( px_vwap * (1 - ε_bps), guard_worstPx * (1 - ε_bps) ).
+
+Start with ε_bps = 2 (configurable per leg/symbol).
+
+9) Risk Controls & Circuit Breakers
+
+Disable a symbol or route if any of the following trip within rolling windows:
+
+rejectRate > R% (e.g., 5%) over last N orders.
+
+slippage_bps_p95 > S (e.g., 15 bps) over last M bundles.
+
+Time desync (engine vs gateway) > Δ_ms.
+
+Private stream stale > T_s (e.g., 5s).
+
+BOOK_STALENESS_HITS exceed threshold.
+
+When triggered, place the route/symbol into quarantine for QUIET_PERIOD_MS (e.g., 60_000).
+
+10) Latency Budget Targets
+
+Book parse/normalize: ≤ 1 ms
+
+Engine triangle evaluation (impacted triangles only): ≤ 2 ms
+
+Gateway UDS tx/rx: ≤ 0.2 ms
+
+REST order POST (client-side): ≤ 1 ms
+
+Exchange ACK p99: observed/monitored (external)
+
+11) Metrics (per-leg & per-bundle)
+
+Emit Prometheus metrics:
+
+edge_bps{route,symbol} (hist.)
+
+impact_bps{route,symbol,leg} (hist.)
+
+levels_used{route,symbol,leg} (hist.)
+
+decision_latency_ns (hist.)
+
+signals_emitted_total{route}
+
+cooldown_skips_total{route}
+
+order_post_latency_ms (hist.)
+
+order_rejects_total{reason}
+
+hedges_total{reason}
+
+pnl_inr (gauge), fill_hit_rate (gauge)
+
+Structured logs per bundle include:
+
+triangle id, route, inr0, expected edge bps,
+
+per-leg: qty, vwap, worstPx, impactBps, fees, levelsUsed,
+
+execution outcomes and hedge flags.
+
+12) Pseudocode (Engine Hot Path)
+on_tick(market, book):
+  if stale(book): return
+  state.books[market] = normalize(book, K)
+  for tri in triangles_by_market[market]:
+    if !balances_ok(tri) or in_cooldown(tri): continue
+
+    plan = evaluate_triangle_with_depth(tri)
+    if plan is None: continue
+
+    if edge_improved_enough(tri, plan.edge_bps) or cooldown_elapsed(tri):
+      emit_order_bundle(plan)
+      set_cooldown(tri)
+      remember_last_edge(tri, plan.edge_bps)
+
+evaluate_triangle_with_depth(tri):
+  // Decide starting INR size (sizing ladder with guards)
+  for inr0 in sizing_ladder(tri):
+    if tri.route == STRAIGHT:
+      // Leg 1: INR→USDT BUY
+      q_usdt = estimate_qty_for_inr(inr0, asks_usdtinr)
+      if !canFillBuy(asks_usdtinr, q_usdt, cap1): continue
+      usdt_vwap = vwap(asks_usdtinr, q_usdt)
+
+      // Leg 2: USDT→X BUY
+      q_coin = round_down(usdt_vwap.filled / best_or_vwap_px_xusdt)
+      if !canFillBuy(asks_xusdt, q_coin, cap2): continue
+      xusdt_vwap = vwap(asks_xusdt, q_coin)
+
+      // Leg 3: X→INR SELL
+      if !canFillSell(bids_xinr, q_coin, cap3): continue
+      xinr_vwap = vwap(bids_xinr, q_coin)
+
+      inr_final = xinr_vwap.notional_after_fees(...)
+      edge = inr_final / inr0 - 1
+      if edge >= ENTRY_THRESHOLD: return build_plan(...)
+
+    else: // REVERSE (mirror logic with xinr BUY, xusdt SELL, usdtinr SELL)
+      ...
+
+  return None
+
+13) Configuration Knobs (per-env, per-symbol overrides)
+
+ENTRY_THRESHOLD_BPS (default: 8)
+
+DELTA_EDGE_BPS (default: 3)
+
+COOLDOWN_MS (default: 250)
+
+BOOK_MAX_AGE_MS (default: 1500)
+
+BID_ASK_LEVELS (default: 20)
+
+SLIP_CAP_BPS_{LEG1,LEG2,LEG3} (defaults: 8, 10, 8)
+
+ε_bps (aggressive limit offset; default: 2)
+
+MIN_FILL_FRACTION_L1, MIN_FILL_FRACTION_L2 (defaults: 0.85, 0.90)
+
+TRIANGLE_CAP_INR, SYMBOL_CAP_INR
+
+Per-market minQty, minNotional, pricePrecision, quantityPrecision (from metadata)
+
+QUIET_PERIOD_MS, REJECT_RATE_LIMIT_%, SLIPPAGE_LIMIT_BPS_P95
+
+14) Testing Checklist
+
+VWAP correctness across synthetic multi-level books.
+
+Impact bps vs best prices on BUY/SELL.
+
+Sizing ladder stops at first failing guard.
+
+Constraint enforcement: rounding, minNotional/minQty.
+
+Edge monotonicity with increased adverse prices.
+
+Cooldown & de-dup logic under noisy ticks.
+
+Hedge path engages on partial fills and neutralizes exposure.
+
+15) Implementation Pointers
+
+Reuse the same VWAP & guard functions in:
+
+Engine (signal generation, expected P&L)
+
+Gateway (to derive limit prices for IOC/market-like orders)
+
+Persist per-leg levelsUsed and impactBps for post-trade optimization (e.g., tuning K, slipCapBps, ε_bps).
+
+Start with K=10 for hot path; tune after profiling.

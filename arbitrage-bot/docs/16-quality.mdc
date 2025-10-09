@@ -1,0 +1,11 @@
+---
+alwaysApply: true
+---
+
+TypeScript strict mode, ESLint + Prettier.
+
+Rust: #![forbid(unsafe_code)], clippy -D warnings.
+
+Structured logs (JSON) everywhere.
+
+Feature flags per route/symbol via env or config file.

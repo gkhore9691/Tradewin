@@ -1,0 +1,25 @@
+---
+alwaysApply: true
+---
+
+
+fn on_tick(market: &str, tob: TopOfBook) {
+    update_cache(market, tob);
+    for tri in triangles_by_market[market].iter() {
+        if let Some(plan) = evaluate_triangle(tri) {
+            if cooldown_allows(&tri.id, plan.expected_edge) {
+                send_order_bundle(plan);
+                set_cooldown(&tri.id);
+            }
+        }
+    }
+}
+
+fn evaluate_triangle(tri: &Triangle) -> Option<OrderBundle> {
+    let caps = sizing_caps(tri);
+    let qtys = compute_quantities_with_rounding(tri, caps)?;
+    if !liquidity_sufficient(tri, &qtys, K_LEVELS, SLIP_BUFFER) { return None; }
+    let edge = compute_edge_after_fees(tri, &qtys);
+    if edge < ENTRY_THRESHOLD { return None; }
+    Some(build_order_bundle(tri, &qtys, edge))
+}

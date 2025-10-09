@@ -1,0 +1,15 @@
+---
+alwaysApply: true
+---
+
+API keys stored in KMS; injected at runtime via IAM role to EC2.
+
+Secrets never logged; structured logs scrubber in gateway.
+
+Strict IP allowlist if exchange supports.
+
+Separate prod/stage keys and infra accounts.
+
+Rate limiters per route; exponential backoff with jitter (max 2s).
+
+Kill switch: ENV flag STRATEGY_ENABLED=false disables new bundles but keeps hedging live.

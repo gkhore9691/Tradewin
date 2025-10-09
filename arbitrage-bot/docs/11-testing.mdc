@@ -1,0 +1,28 @@
+---
+alwaysApply: true
+---
+
+
+Unit tests
+
+Precision/rounding: ensure quantities always ≥ minQty and notional ≥ minNotional.
+
+Triangle math parity (Straight vs Reverse).
+
+Liquidity guard with K-level depth.
+
+Integration tests
+
+Simulated depth feeds → expected OrderBundle.
+
+REST mock server with delays/rejects → hedging works.
+
+Backtesting
+
+Input: recorded ticks and fills (from ClickHouse export).
+
+Sim engine replays ticks with same policies (fee/slippage model).
+
+Reports:
+
+P&L, hit rate, avg edge vs realized, drawdown, symbol buckets.

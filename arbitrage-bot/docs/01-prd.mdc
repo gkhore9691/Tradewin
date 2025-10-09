@@ -1,0 +1,61 @@
+---
+alwaysApply: true
+---
+
+Goal
+
+Exploit transient triangular arbitrage opportunities on a single exchange with two base currencies (INR, USDT) across ~300 common symbols with minimal latency, built-in risk controls, and auditable P&L.
+
+Users
+
+You (operator/trader), infra engineer, future PM.
+
+No end-customer UI initially; operator dashboard only.
+
+Success metrics (North Star + guardrails)
+
+Net daily P&L > 0 with Sharpe > 1.0 over rolling 30d.
+
+Fill hit rate ≥ 65% on signaled triangles (tuned by symbol).
+
+Median decision latency (tick → decision) ≤ 4ms on-box.
+
+Order acks ≤ 80ms p99 (Mumbai region placement).
+
+Abort rate (leg-2/3 hedges) ≤ 10% of total runs.
+
+Out of scope (MVP)
+
+Cross-exchange inventory rebalancing.
+
+Margin/derivatives; only spot.
+
+UI for manual execution (later).Goal
+
+Exploit transient triangular arbitrage opportunities on a single exchange with two base currencies (INR, USDT) across ~300 common symbols with minimal latency, built-in risk controls, and auditable P&L.
+
+Users
+
+You (operator/trader), infra engineer, future PM.
+
+No end-customer UI initially; operator dashboard only.
+
+Success metrics (North Star + guardrails)
+
+Net daily P&L > 0 with Sharpe > 1.0 over rolling 30d.
+
+Fill hit rate ≥ 65% on signaled triangles (tuned by symbol).
+
+Median decision latency (tick → decision) ≤ 4ms on-box.
+
+Order acks ≤ 80ms p99 (Mumbai region placement).
+
+Abort rate (leg-2/3 hedges) ≤ 10% of total runs.
+
+Out of scope (MVP)
+
+Cross-exchange inventory rebalancing.
+
+Margin/derivatives; only spot.
+
+UI for manual execution (later).

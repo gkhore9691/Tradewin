@@ -1,0 +1,37 @@
+---
+alwaysApply: true
+---
+
+.env (per environment):
+
+EXCHANGE_REST_BASE=https://<exchange-rest>
+EXCHANGE_WS_PUBLIC=wss://<exchange-socket-public>
+EXCHANGE_WS_PRIVATE=wss://<exchange-socket-private>
+EXCHANGE_API_KEY=<redacted>
+EXCHANGE_API_SECRET=<redacted>
+REGION=ap-south-1
+
+# Gateway
+WS_TRANSPORT=websocket
+WS_VERSION_PIN=2.4.0
+ORDER_TIF=IOC
+AGGRESSIVE_EPS_BPS=2                    # price improve/offset
+BID_ASK_LEVELS=5
+DEPTH_SLIP_BUFFER=0.02
+
+# Engine
+ENTRY_THRESHOLD_BPS=8
+COOLDOWN_MS=250
+FEE_TAKER_BPS=20
+MIN_FILL_FRACTION_L1=0.85
+MIN_FILL_FRACTION_L2=0.90
+TRIANGLE_CAP_INR=10000
+SYMBOL_CAP_INR=30000
+
+# Risk
+REJECT_RATE_LIMIT_BPS=500
+SLIPPAGE_LIMIT_BPS=15
+
+# ClickHouse
+CH_DSN=http://clickhouse:8123
+CH_DB=arb

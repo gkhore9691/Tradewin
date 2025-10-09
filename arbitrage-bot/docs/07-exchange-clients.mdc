@@ -1,0 +1,37 @@
+---
+alwaysApply: true
+---
+
+Note: Fill in exact endpoints and channel names from the exchange docs while implementing. Keep the client behind an interface so you can swap if needed.
+
+Public depth stream (Socket.IO)
+
+Transport: enforce websocket, disable long-polling.
+
+Subscribe to:
+
+USDTINR (or INRUSDT) book
+
+XUSDT book for all common coins
+
+XINR book for all common coins
+
+Normalize messages to TopOfBook and K-level depth.
+
+Private stream
+
+Auth handshake (per exchange).
+
+Events: order updates, trade fills, balance updates.
+
+REST
+
+GET /markets_details → constraints & precisions
+
+POST /order → market/IOC/limit
+
+DELETE /order/:id → cancel
+
+GET /balances → available funds
+
+Rate limiting: implement leaky bucket (per route) with retry/backoff & idempotent client-order-ids (ULID length ≤ 36).

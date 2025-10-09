@@ -1,0 +1,22 @@
+{
+  "name": "arbitrage-bot",
+  "version": "1.0.0",
+  "description": "High-frequency triangular arbitrage trading system",
+  "private": true,
+  "scripts": {
+    "setup": "./test-local.sh",
+    "start:infra": "cd infra/docker && docker-compose up -d",
+    "stop:infra": "cd infra/docker && docker-compose down",
+    "start:gateway": "cd apps/gateway-node && npm run dev",
+    "start:engine": "cd apps/engine-rust && cargo run",
+    "build:gateway": "cd apps/gateway-node && npm run build",
+    "build:engine": "cd apps/engine-rust && cargo build --release",
+    "test": "cd apps/gateway-node && npm test",
+    "lint": "cd apps/gateway-node && npm run lint",
+    "clean": "rm -rf apps/gateway-node/node_modules apps/gateway-node/dist apps/engine-rust/target"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  }
+}

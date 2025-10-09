@@ -1,0 +1,26 @@
+{
+  "name": "@arbitrage/schemas",
+  "version": "1.0.0",
+  "description": "Protobuf schemas for arbitrage trading system",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc && buf generate",
+    "buf:generate": "buf generate",
+    "buf:lint": "buf lint",
+    "buf:format": "buf format --write"
+  },
+  "dependencies": {
+    "protobufjs": "^7.2.5",
+    "ts-proto": "^1.166.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "bufbuild": "^1.25.0",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "protobufjs": "^7.2.5"
+  }
+}
+

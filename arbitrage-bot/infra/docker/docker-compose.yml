@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: arbitrage-clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_DB: arb
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - arbitrage-network
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: arbitrage-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - arbitrage-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: arbitrage-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - arbitrage-network
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.gateway
+    container_name: arbitrage-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      CH_DSN: http://clickhouse:8123
+      CH_DB: arb
+      UDS_ENGINE_PATH: /tmp/arb_engine.sock
+      LOG_LEVEL: info
+    volumes:
+      - /tmp:/tmp  # For UDS communication
+      - ./config/.env.gateway:/app/.env:ro
+    depends_on:
+      - clickhouse
+    networks:
+      - arbitrage-network
+    restart: unless-stopped
+
+  engine:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.engine
+    container_name: arbitrage-engine
+    environment:
+      ENGINE_UDS_PATH: /tmp/arb_engine.sock
+      ENGINE_LOG_LEVEL: info
+    volumes:
+      - /tmp:/tmp  # For UDS communication
+      - ./config/config.toml:/app/config.toml:ro
+    depends_on:
+      - gateway
+    networks:
+      - arbitrage-network
+    restart: unless-stopped
+
+volumes:
+  clickhouse_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  arbitrage-network:
+    driver: bridge
+

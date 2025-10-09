@@ -1,0 +1,23 @@
+{
+  "name": "arbitrage-bot-frontend",
+  "version": "1.0.0",
+  "description": "Real-time orderbook dashboard for arbitrage bot",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "keywords": [
+    "arbitrage",
+    "trading",
+    "orderbook",
+    "dashboard",
+    "websocket"
+  ],
+  "author": "Arbitrage Bot",
+  "license": "MIT"
+}
+

@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package arbitrage.v1;
+
+// Top-of-book tick with micro-depth
+message TopOfBook {
+  string market = 1;           // e.g., "BTCUSDT", "BTCINR", "USDTINR"
+  double best_bid = 2;
+  double best_bid_qty = 3;
+  double best_ask = 4;
+  double best_ask_qty = 5;
+  repeated DepthLevel depth_bid = 6;      // up to K levels
+  repeated DepthLevel depth_ask = 7;      // up to K levels
+  int64 ts_exchange_ns = 8;    // exchange timestamp if available
+  int64 ts_gateway_ns = 9;     // gateway arrival timestamp
+}
+
+message DepthLevel {
+  double px = 1;
+  double qty = 2;
+}
+
+// Market metadata with constraints
+message MarketMeta {
+  string market = 1;                // "BTCUSDT" etc.
+  string base = 2;                  // "BTC"
+  string quote = 3;                 // "USDT"/"INR"
+  uint32 price_precision = 4;
+  uint32 quantity_precision = 5;
+  double min_qty = 6;
+  double min_notional = 7;
+  double max_qty = 8;
+}
+
+// Decision/Order bundle for triangle execution
+message OrderBundle {
+  string triangle_id = 1;      // e.g., "BTC:STRAIGHT"
+  string route = 2;           // "STRAIGHT" | "REVERSE"
+  repeated Leg legs = 3;       // sequential legs
+  double expected_edge = 4;    // after fees (decimal)
+  double capital_inr = 5;      // starting INR for the route
+  string risk_token = 6;       // per-bundle id for hedges/cancels
+  int64 ts_engine_ns = 7;
+}
+
+message Leg {
+  string market = 1;
+  string side = 2;            // "BUY" | "SELL"
+  double price = 3;           // market/IOC -> price=best±ε
+  double qty = 4;             // after rounding & minQty check
+  string time_in_force = 5;   // "IOC" | "FOK" | "GTC"
+  string intent = 6;          // "TAKER"
+  double vwap_price = 7;      // expected VWAP price
+  double worst_price = 8;     // worst case price
+  double impact_bps = 9;      // price impact in basis points
+  uint32 levels_used = 10;    // number of book levels used
+}
+
+// Execution reports from exchange
+message Execution {
+  string client_order_id = 1;
+  string market = 2;
+  string side = 3;
+  double price = 4;
+  double qty = 5;
+  double fee = 6;
+  string fee_asset = 7;
+  string status = 8;          // NEW|PARTIAL|FILLED|CANCELED|REJECTED
+  string risk_token = 9;
+  int64 ts_ack_ns = 10;
+  bool toxic_fill = 11;       // true if this was a hedge/emergency fill
+}
+
+// Balance update
+message Balance {
+  string asset = 1;
+  double available = 2;
+  double locked = 3;
+  int64 ts_ns = 4;
+}
+
+// Triangle definition
+message Triangle {
+  string id = 1;              // "BTC:STRAIGHT", "BTC:REVERSE"
+  string symbol = 2;          // "BTC"
+  string route = 3;           // "STRAIGHT" | "REVERSE"
+  repeated string markets = 4; // ["USDTINR", "BTCUSDT", "BTCINR"]
+  repeated string sides = 5;   // ["BUY", "BUY", "SELL"] for straight
+  double cap_inr = 6;         // maximum INR allocation for this triangle
+}
+
+// Market state snapshot
+message MarketState {
+  string market = 1;
+  repeated DepthLevel asks = 2;
+  repeated DepthLevel bids = 3;
+  int64 last_update_ns = 4;
+  bool stale = 5;
+}

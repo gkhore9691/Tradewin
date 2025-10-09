@@ -1,0 +1,31 @@
+---
+alwaysApply: true
+---
+
+Pre-flight
+
+Check balances (INR, USDT), allowed symbols, fee tier.
+
+Load markets metadata; verify constraints hash.
+
+Start order
+
+Start ClickHouse → Gateway → Engine (in this order).
+
+Warm-up
+
+Allow 60s for depth subscription; watch “stale” alerts.
+
+Go live
+
+Toggle STRATEGY_ENABLED=true.
+
+Monitor: hit rate, slippage, rejects, P&L.
+
+Degrade mode
+
+If alerts trigger, auto-reduce ENTRY_THRESHOLD_BPS ↑ or pause risky symbols.
+
+Shutdown
+
+Disable strategy; ensure no open orders; export daily report.
